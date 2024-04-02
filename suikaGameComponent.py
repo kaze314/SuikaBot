@@ -42,7 +42,7 @@ USER_HOME = os.environ.get("HOMEDRIVE") + os.environ.get("HOMEPATH")
 PATH = USER_HOME + "\\AppData\\Local\\Thorium\\Application\\thorium.exe"
 
 class SuikaGame:
-	def __init__(self, url):
+	def __init__(self, url, headless = True):
 		print("Init SuikaGame...")
 		self.URL = url
 		
@@ -50,11 +50,12 @@ class SuikaGame:
 		options.binary_location = PATH
 		options.add_extension('speedPluginModded.crx')
 
+		if headless:
+			options.add_argument("--headless")
+
 		self.driver = webdriver.Chrome(options = options)
 		self.driver.set_window_size(800, 800)
 
-		self.actions = ActionChains(self.driver)
-		self.is_done = False
 		self.fruit_counter = 0
 		self.refresh()
 

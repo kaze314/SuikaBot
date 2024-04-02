@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+import numpy as np
 import json
 import os
 
@@ -42,10 +43,10 @@ class SuikaTrainer:
 		self.criterion = nn.MSELoss()
 
 	def train(self, new_state, state, action, reward, is_done):
-		state = torch.tensor(state, dtype=torch.float)
-		new_state = torch.tensor(new_state, dtype=torch.float)
-		action = torch.tensor(action, dtype=torch.float)
-		reward = torch.tensor(reward, dtype=torch.float)
+		state = torch.tensor(np.array(state), dtype=torch.float)
+		new_state = torch.tensor(np.array(new_state), dtype=torch.float)
+		action = torch.tensor(np.array(action), dtype=torch.float)
+		reward = torch.tensor(np.array(reward), dtype=torch.float)
 
 		# 1: predicted Q values with current state
 		pred = self.model(state)
