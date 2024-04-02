@@ -9,6 +9,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 import time
 import random
+import os
 
 fruits = [
 	'Unknown',
@@ -37,7 +38,8 @@ fruits = [
 	'Blueberry'
 ]
 
-PATH = "C:\\Users\\drago\\AppData\\Local\\Thorium\\Application\\thorium.exe"
+USER_HOME = os.environ.get("HOMEDRIVE") + os.environ.get("HOMEPATH")
+PATH = USER_HOME + "\\AppData\\Local\\Thorium\\Application\\thorium.exe"
 
 class SuikaGame:
 	def __init__(self, url):
@@ -64,7 +66,8 @@ class SuikaGame:
 		self.driver.get(self.URL)
 		time.sleep(3)
 		
-		self.actions.move_by_offset(100, 100).click().perform()
+		element = self.driver.find_element(By.XPATH, "//div[@class='relative mb-2 h-fit w-fit flex-grow-0']")
+		element.click()
 		self.fruit_counter = 1
 
 	def can_drop_fruit(self):
@@ -102,8 +105,15 @@ class SuikaGame:
 
 	def is_over(self):
 		# If the webpage changes it means the game has ended.
-		if (self.driver.current_url != self.URL):
+		if self.driver.current_url != self.URL:
 			return True
+
+		# ShouldRefresh is set to 1 when the game should end.
+		should_refresh = self.driver.execute_script("return ShouldRefresh;")
+		if should_refresh == 1:
+			return True
+
+		return False
 
 	def get_fruit_queue(self):
 		if (self.is_data_defined() is False):
@@ -171,9 +181,6 @@ class SuikaGame:
 	def is_data_defined(self):
 		return self.driver.execute_script("return typeof GameData !== 'undefined' && typeof GameData.fruits !== 'undefined';")
 		
-
-
-
 
 # Testing
 if __name__ == '__main__':

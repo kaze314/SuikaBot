@@ -444,6 +444,7 @@ var $t =
     : {};
 $t.SENTRY_RELEASE = { id: "78c56335a5a82bb652ec94c36990115d2edc4d32" };
 $t.GameData = 0;
+$t.ShouldRefresh = 0;
 $t.DropFunction = 0;
 $t.previewHelperFunction = 0;
 typeof window < "u" &&

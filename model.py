@@ -2,27 +2,36 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+import json
 import os
 
 class Linear_QNet(nn.Module):
-	def __init__(self, input_size, hidden_size, output_size):
+	def __init__(self, input_size, hidden_size, second_hidden_size, output_size):
 		super().__init__()
 		self.linear1 = nn.Linear(input_size, hidden_size)
-		self.linear2 = nn.Linear(hidden_size, output_size)
+		self.linear2 = nn.Linear(hidden_size, second_hidden_size)
+		self.linear3 = nn.Linear(second_hidden_size, output_size)
 
 	def forward(self, x):
-		x = self.linear1(x)
-		x = F.relu(x)
-		x = self.linear2(x)
+		x = F.relu(self.linear1(x))
+		x = F.relu(self.linear2(x))
+		x = self.linear3(x)
 		return x
 
-	def save(self, file_name='SuikaBot.model'):
+	def save(self, json_data, file_name='SuikaBot.model'):
+		# Save the model
 		folder = './model'
 		if not os.path.exists(folder):
 			os.makedirs(folder)
 
-		file_name = os.path.join(folder, file_name)
-		torch.save(self.state_dict(), file_name)
+		model_filename = os.path.join(folder, file_name)
+		torch.save(self.state_dict(), model_filename)
+
+		# Save data related to the model in json.
+		json_filename = os.path.join(folder, 'SuikaData.json')
+		with open(json_filename, 'w') as file:
+			json.dump(json_data, file)
+
 
 class SuikaTrainer:
 	def __init__(self, model, learning_rate, gamma):

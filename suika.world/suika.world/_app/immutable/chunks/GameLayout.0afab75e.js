@@ -23741,12 +23741,15 @@ else `),
             break;
           }
         }
-        X
-          ? (Rt(x, (s.kill_grace_timer += 1), s),
-            s.kill_grace_timer > Tp * Ep &&
-              (Rt(x, (s.is_dead = !0), s), b("local_died", s)))
-          : s.kill_grace_timer !== 0 && Rt(x, (s.kill_grace_timer = 0), s),
-          (_.alpha = Oe((Y - Io) / (0 - Io), [0, 1]));
+        if (X) {
+          ShouldRefresh = 1;
+      } else {
+          if (s.kill_grace_timer !== 0) {
+              Rt(x, s.kill_grace_timer = 0, s);
+          }
+      }
+      
+      _.alpha = Oe((Y - Io) / (0 - Io), [0, 1]);
       }
       function D(I) {
         const X = s.fruits.get(I.lethalFruitHandle);
