@@ -49,13 +49,30 @@ class SuikaGame:
 		options = webdriver.ChromeOptions()
 		options.binary_location = PATH
 		options.add_extension('speedPluginModded.crx')
-		options.add_argument("--log-level=3")
 
-		if headless:
-			options.add_argument("--headless")
+		# Disable logging which will make the console cleaner
+		options.add_argument("--log-level=3")
+		options.add_argument("--silent");
+
+		options.add_argument("--no-sandbox");
+		options.add_argument("--enable-gpu")
+		options.add_argument("--disable-client-side-phishing-detection");
+		options.add_argument("--disable-crash-reporter");
+		options.add_argument("--disable-oopr-debug-crash-dump");
+		options.add_argument("--no-crash-upload");
+		options.add_argument("--disable-low-res-tiling");
 
 		self.driver = webdriver.Chrome(options = options)
-		self.driver.set_window_size(800, 800)
+		self.driver.set_window_size(400, 400)
+
+		self.headless = headless
+		# Using the real headless would disable GPU acceleration
+		if headless:
+			self.driver.set_window_size(400, 400)
+		else:
+			self.driver.set_window_size(1200, 800)
+
+		
 
 		self.fruit_counter = 0
 		self.refresh()
@@ -66,7 +83,7 @@ class SuikaGame:
 
 	def refresh(self):
 		self.driver.get(self.URL)
-		time.sleep(3)
+		time.sleep(10)
 		
 		element = self.driver.find_element(By.XPATH, "//img[@alt='Suika World']")
 		element.click()

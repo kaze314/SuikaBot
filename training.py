@@ -1,4 +1,4 @@
-import asyncio
+import threading
 import time
 import matplotlib.pyplot as plt
 import os
@@ -6,13 +6,15 @@ from IPython import display
 from suikaBot import SuikaBot
 
 
-SLEEP_SECONDS = 0.1
+SLEEP_SECONDS = 0.2
 MAX_SCORE_TO_SAVE = 1000
 
 MAX_X_VALUE = 0.26
 MIN_X_VALUE = 0.04
 ACTIONS_AMOUNT = 25
 X_VALUE_MULTIPLIER = (MAX_X_VALUE - MIN_X_VALUE) / ACTIONS_AMOUNT
+
+NUMBER_OF_INSTANCES = 2
 
 plt.ion()
 
@@ -23,8 +25,17 @@ def plot(bot):
     plt.title('Training...')
     plt.xlabel('Number of Games')
 
-    # Plot scores and mean scores
+    # Get the maximum length among all lists
+    max_length = max(len(bot.scores), len(bot.mean_scores), len(bot.losses), len(bot.rates), len(bot.delta_times))
+
+    # Pad shorter lists with the last value to match the length of the longest list
+    bot.scores += [bot.scores[-1]] * (max_length - len(bot.scores))
+    bot.mean_scores += [bot.mean_scores[-1]] * (max_length - len(bot.mean_scores))
+    bot.losses += [bot.losses[-1]] * (max_length - len(bot.losses))
+    bot.rates += [bot.rates[-1]] * (max_length - len(bot.rates))
+    bot.delta_times += [bot.delta_times[-1]] * (max_length - len(bot.delta_times))
     
+    # Plot scores and mean scores
     plt.plot(bot.scores, label='Score')
     plt.plot(bot.mean_scores, label='Avg Score')
     plt.plot(bot.losses, label='Loss')
@@ -42,7 +53,7 @@ def plot(bot):
     plt.show(block=False)
     plt.pause(.1)
 
-async def process_instance(bot, game, index):
+def process_instance(bot, game, index):
     states = []
     new_states = []
     actions = []
@@ -52,6 +63,7 @@ async def process_instance(bot, game, index):
     if len(bot.games) - 1 == index:
         print("Printing data for instance ", index + 1)
 
+    before_time = time.time()
     while True:
         
         if (game.can_drop_fruit() is False):
@@ -62,13 +74,16 @@ async def process_instance(bot, game, index):
         state = bot.get_state(index)
         action = bot.get_action(state, index)
 
+        if state is None:
+            continue
+
         # Calculate X value and drop
         x_value = action * X_VALUE_MULTIPLIER + MIN_X_VALUE
         current_fruit_index = state[0]
         game.drop_fruit(x_value)
 
         # Wait before continuing
-        await asyncio.sleep(SLEEP_SECONDS)
+        time.sleep(SLEEP_SECONDS)
 
         is_done = game.is_over()
         if is_done is False:
@@ -100,7 +115,28 @@ async def process_instance(bot, game, index):
         bot.scores.append(score) 
         bot.mean_scores.append(mean_score)
 
-        if (score > MAX_SCORE_TO_SAVE):
+        print('Game', bot.games_number, 'Score', score)
+
+        states.append(state)
+        new_states.append(state)
+        actions.append(action)
+        rewards.append(0)
+        is_dones.append(is_done)
+
+        after_time = time.time()
+        time_elapsed = after_time - before_time
+        bot.delta_times.append(time_elapsed)
+        break
+
+
+    for i in range(len(states)):
+        bot.cache(states[i], new_states[i], actions[i], rewards[i], is_dones[i])
+
+    
+    loss = bot.learn()
+    bot.losses.append(loss)
+
+    if (score > MAX_SCORE_TO_SAVE):
             json_data = {
                 'scores': bot.scores,
                 'avg scores': bot.mean_scores,
@@ -111,44 +147,28 @@ async def process_instance(bot, game, index):
                 'delta times': bot.delta_times,
             }
             bot.model.save(json_data)
-
-        print('Game', bot.games_number, 'Score', score)
-
-        states.append(state)
-        new_states.append(state)
-        actions.append(action)
-        rewards.append(0)
-        is_dones.append(is_done)
-        break
+        
 
 
-    for i in range(len(states)):
-        bot.cache(states[i], new_states[i], actions[i], rewards[i], is_dones[i])
-    
-    bot.learn()
-
-
-async def train():
-    bot = SuikaBot(instances=4)
+def train():
+    print('-->Creating ', NUMBER_OF_INSTANCES, ' instances')
+    bot = SuikaBot(NUMBER_OF_INSTANCES)
 
     while True:
-        tasks = []
+        threads = []
         for index, game in enumerate(bot.games):
-            task = asyncio.create_task(process_instance(bot, game, index))
-            tasks.append(task)
-	
-        before_time = time.time()
-        await asyncio.gather(*tasks)
-        after_time = time.time()
+            t = threading.Thread(target=process_instance, args=(bot, game, index))
+            threads.append(t)
+            t.start()
+            
 
-        time_elapsed = after_time - before_time
-        loss = bot.learn()
+        for thread in threads:
+            thread.join()
 
-        for index, game in enumerate(bot.games):
-            bot.losses.append(loss)
-            bot.delta_times.append(time_elapsed)
-            plot(bot)     
+        bot.learn()
+        plot(bot) 
+
 		
 
 if __name__ == '__main__':
-    asyncio.run(train())
+    train()

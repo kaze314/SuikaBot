@@ -2,9 +2,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+import threading
 import numpy as np
 import json
 import os
+
+
+lock = threading.Lock()
 
 class Linear_QNet(nn.Module):
 	def __init__(self, input_size, hidden_size, second_hidden_size, output_size):
@@ -43,27 +47,28 @@ class SuikaTrainer:
 		self.criterion = nn.MSELoss()
 
 	def train(self, new_state, state, action, reward, is_done):
-		state = torch.tensor(np.array(state), dtype=torch.float)
-		new_state = torch.tensor(np.array(new_state), dtype=torch.float)
-		action = torch.tensor(np.array(action), dtype=torch.float)
-		reward = torch.tensor(np.array(reward), dtype=torch.float)
+		with lock:
+			state = torch.tensor(np.array(state), dtype=torch.float)
+			new_state = torch.tensor(np.array(new_state), dtype=torch.float)
+			action = torch.tensor(np.array(action), dtype=torch.float)
+			reward = torch.tensor(np.array(reward), dtype=torch.float)
 
-		# 1: predicted Q values with current state
-		pred = self.model(state)
+			# 1: predicted Q values with current state
+			pred = self.model(state)
 
-		target = pred.clone()
-		for idx in range(len(is_done)):
-			Q_new = reward[idx]
-			if not is_done[idx]:
-				Q_new = reward[idx] + self.gamma * torch.max(self.model(new_state[idx]))
+			target = pred.clone()
+			for idx in range(len(is_done)):
+				Q_new = reward[idx]
+				if not is_done[idx]:
+					Q_new = reward[idx] + self.gamma * torch.max(self.model(new_state[idx]))
 
-			target[idx][torch.argmax(action[idx]).item()] = Q_new
+				target[idx][torch.argmax(action[idx]).item()] = Q_new
 
 
-		self.optimizer.zero_grad()
-		loss = self.criterion(target, pred)
-		loss.backward()
+			self.optimizer.zero_grad()
+			loss = self.criterion(target, pred)
+			loss.backward()
 
-		self.optimizer.step()
-		return loss.item()
+			self.optimizer.step()
+			return loss.item()
 

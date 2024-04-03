@@ -7,6 +7,7 @@ import numpy as np
 import os
 import json
 import random
+import concurrent.futures
 from collections import deque
 
 from suikaGameComponent import SuikaGame
@@ -14,7 +15,8 @@ from model import Linear_QNet, SuikaTrainer
 
 URL = "http://localhost:8000/play/offline.html"
 
-# NN constants
+
+# NN hyperparameters
 EXPLORATION_RATE_DECAY = 0.99999975
 EXPLORATION_RATE_MIN = 0.1
 LEARNING_RATE = 1e-4
@@ -45,7 +47,7 @@ class SuikaBot:
             self.games_number = data['game number']
             self.total_score = data['total score']
             self.scores = data['scores']
-            self.delta_times = ['delta times']
+            self.delta_times = data['delta times']
             self.mean_scores = data['avg scores']
             self.losses = data['loss']
             self.rates = data['exploration rates']
@@ -53,7 +55,7 @@ class SuikaBot:
             print('-->Loaded save data')
 
         else:
-            print('-->Creating model')
+            print('-->Creating new model data')
             self.games_number = 0
             self.total_score = 0
             self.scores = []
@@ -66,15 +68,30 @@ class SuikaBot:
         self.trainer = SuikaTrainer(self.model, LEARNING_RATE, GAMMA)
         
         self.games = []
-        for i in range(instances):
-            print('Instance: ', i + 1)
-            if (i == instances - 1):
-                game = SuikaGame(URL, headless=False)
-            else:
-                game = SuikaGame(URL, headless=True)
 
-            self.games.append(game)
-        
+        # Thread pool to make initializing each game faster
+        max_workers = round(instances / 2)
+        with concurrent.futures.ThreadPoolExecutor(max_workers) as thread:
+            # Submit jobs to the ThreadPoolExecutor
+            jobs = []
+            for i in range(instances):
+                print('Instance: ', i + 1)
+                if (i == instances - 1):
+                    jobs.append(thread.submit(SuikaGame, URL, headless=False))
+                else:
+                    jobs.append(thread.submit(SuikaGame, URL, headless=True))
+                
+            # Wait for all jobs to complete
+            displayed_game = None
+            for job in concurrent.futures.as_completed(jobs):
+                game = job.result()
+                if game.headless is True:
+                    self.games.append(game)
+                else:
+                    displayed_game = game
+
+            self.games.append(displayed_game)
+
     def get_state(self, instance_index = 0):
         (current_fruit_index, next_fruit_index) = self.games[instance_index].get_fruit_queue()
         if (current_fruit_index is None):
