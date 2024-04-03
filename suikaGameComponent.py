@@ -49,6 +49,7 @@ class SuikaGame:
 		options = webdriver.ChromeOptions()
 		options.binary_location = PATH
 		options.add_extension('speedPluginModded.crx')
+		options.add_argument("--log-level=3")
 
 		if headless:
 			options.add_argument("--headless")
@@ -67,7 +68,7 @@ class SuikaGame:
 		self.driver.get(self.URL)
 		time.sleep(3)
 		
-		element = self.driver.find_element(By.XPATH, "//div[@class='relative mb-2 h-fit w-fit flex-grow-0']")
+		element = self.driver.find_element(By.XPATH, "//img[@alt='Suika World']")
 		element.click()
 		self.fruit_counter = 1
 

@@ -37,17 +37,19 @@ class SuikaBot:
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path)) 
             print('-->Loaded model')
-
+            
+        if os.path.exists(model_data_path):
             with open(model_data_path, 'r') as file:
                 data = json.load(file)
 
             self.games_number = data['game number']
             self.total_score = data['total score']
             self.scores = data['scores']
+            self.delta_times = ['delta times']
             self.mean_scores = data['avg scores']
             self.losses = data['loss']
             self.rates = data['exploration rates']
-            self.exploration_rate = self.rates[-1]
+            self.exploration_rate = self.rates[-1] / 100.0
             print('-->Loaded save data')
 
         else:
@@ -55,6 +57,7 @@ class SuikaBot:
             self.games_number = 0
             self.total_score = 0
             self.scores = []
+            self.delta_times = []
             self.mean_scores = []
             self.losses = []
             self.rates = []
@@ -64,6 +67,7 @@ class SuikaBot:
         
         self.games = []
         for i in range(instances):
+            print('Instance: ', i + 1)
             if (i == instances - 1):
                 game = SuikaGame(URL, headless=False)
             else:

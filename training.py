@@ -16,7 +16,7 @@ X_VALUE_MULTIPLIER = (MAX_X_VALUE - MIN_X_VALUE) / ACTIONS_AMOUNT
 
 plt.ion()
 
-def plot(scores, mean_scores, loss, exploration_rate):
+def plot(bot):
     display.clear_output(wait=True)
     display.display(plt.gcf())
     plt.clf()
@@ -25,17 +25,19 @@ def plot(scores, mean_scores, loss, exploration_rate):
 
     # Plot scores and mean scores
     
-    plt.plot(scores, label='Score')
-    plt.plot(mean_scores, label='Avg Score')
-    plt.plot(loss, label='Loss x 10')
-    plt.plot(exploration_rate, label='Exploration Rate')
+    plt.plot(bot.scores, label='Score')
+    plt.plot(bot.mean_scores, label='Avg Score')
+    plt.plot(bot.losses, label='Loss')
+    plt.plot(bot.rates, label='Exploration Rate')
+    plt.plot(bot.delta_times, label='Delta Time In Seconds')
 
     plt.ylim(ymin=0)
     plt.legend()
-    plt.text(len(scores)-1, scores[-1], str(scores[-1]))
-    plt.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
-    plt.text(len(loss)-1, loss[-1], str(loss[-1]))
-    plt.text(len(exploration_rate)-1, exploration_rate[-1], str(exploration_rate[-1]))
+    plt.text(len(bot.scores)-1, bot.scores[-1], str(bot.scores[-1]))
+    plt.text(len(bot.mean_scores)-1, bot.mean_scores[-1], str(bot.mean_scores[-1]))
+    plt.text(len(bot.losses)-1, bot.losses[-1], str(bot.losses[-1]))
+    plt.text(len(bot.rates)-1, bot.rates[-1], str(bot.rates[-1]))
+    plt.text(len(bot.delta_times)-1, bot.delta_times[-1], str(bot.delta_times[-1]))
 
     plt.show(block=False)
     plt.pause(.1)
@@ -98,7 +100,7 @@ async def process_instance(bot, game, index):
         bot.scores.append(score) 
         bot.mean_scores.append(mean_score)
 
-        if (score > 1000):
+        if (score > MAX_SCORE_TO_SAVE):
             json_data = {
                 'scores': bot.scores,
                 'avg scores': bot.mean_scores,
@@ -106,6 +108,7 @@ async def process_instance(bot, game, index):
                 'loss': bot.losses,
                 'exploration rates': bot.rates,
                 'total score': bot.total_score,
+                'delta times': bot.delta_times,
             }
             bot.model.save(json_data)
 
@@ -126,20 +129,25 @@ async def process_instance(bot, game, index):
 
 
 async def train():
-    bot = SuikaBot(instances=3)
+    bot = SuikaBot(instances=4)
 
     while True:
         tasks = []
         for index, game in enumerate(bot.games):
             task = asyncio.create_task(process_instance(bot, game, index))
             tasks.append(task)
-
+	
+        before_time = time.time()
         await asyncio.gather(*tasks)
+        after_time = time.time()
+
+        time_elapsed = after_time - before_time
         loss = bot.learn()
 
         for index, game in enumerate(bot.games):
             bot.losses.append(loss)
-            plot(bot.scores, bot.mean_scores, bot.losses, bot.rates)     
+            bot.delta_times.append(time_elapsed)
+            plot(bot)     
 		
 
 if __name__ == '__main__':
