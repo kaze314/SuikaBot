@@ -14,7 +14,7 @@ MIN_X_VALUE = 0.04
 ACTIONS_AMOUNT = 25
 X_VALUE_MULTIPLIER = (MAX_X_VALUE - MIN_X_VALUE) / ACTIONS_AMOUNT
 
-NUMBER_OF_INSTANCES = 2
+NUMBER_OF_INSTANCES = 20
 
 plt.ion()
 
@@ -54,99 +54,100 @@ def plot(bot):
     plt.pause(.1)
 
 def process_instance(bot, game, index):
-    states = []
-    new_states = []
-    actions = []
-    rewards = []
-    is_dones = []
-
-    if len(bot.games) - 1 == index:
-        print("Printing data for instance ", index + 1)
-
-    before_time = time.time()
     while True:
-        
-        if (game.can_drop_fruit() is False):
-            continue
+        states = []
+        new_states = []
+        actions = []
+        rewards = []
+        is_dones = []
 
-        # Get prediciton
-        score = game.get_score()
-        state = bot.get_state(index)
-        action = bot.get_action(state, index)
+        if len(bot.games) - 1 == index:
+            print("Printing data for instance ", index + 1)
 
-        if state is None:
-            continue
+        before_time = time.time()
+        while True:
+            
+            if (game.can_drop_fruit() is False):
+                continue
 
-        # Calculate X value and drop
-        x_value = action * X_VALUE_MULTIPLIER + MIN_X_VALUE
-        current_fruit_index = state[0]
-        game.drop_fruit(x_value)
+            # Get prediciton
+            score = game.get_score()
+            state = bot.get_state(index)
+            action = bot.get_action(state, index)
 
-        # Wait before continuing
-        time.sleep(SLEEP_SECONDS)
+            if state is None:
+                continue
 
-        is_done = game.is_over()
-        if is_done is False:
-            # Calculate reward
-            new_score = game.get_score()
+            # Calculate X value and drop
+            x_value = action * X_VALUE_MULTIPLIER + MIN_X_VALUE
+            current_fruit_index = state[0]
+            game.drop_fruit(x_value)
 
-            reward = new_score - score
-            new_state = bot.get_state(index)
-            if len(bot.games) - 1 == index:
-                print("X Value: ", x_value)
-                print("Reward: ", reward)
-                print("")
+            # Wait before continuing
+            time.sleep(SLEEP_SECONDS)
+
+            is_done = game.is_over()
+            if is_done is False:
+                # Calculate reward
+                new_score = game.get_score()
+
+                reward = new_score - score
+                new_state = bot.get_state(index)
+                if len(bot.games) - 1 == index:
+                    print("X Value: ", x_value)
+                    print("Reward: ", reward)
+                    print("")
+
+                states.append(state)
+                new_states.append(new_state)
+                actions.append(action)
+                rewards.append(reward)
+                is_dones.append(is_done)
+                continue
+
+            # If game is over, refresh and save.
+            game.refresh()
+
+            bot.games_number += 1
+            bot.total_score += score
+            mean_score = bot.total_score / bot.games_number 
+
+            bot.rates.append(bot.exploration_rate*100)
+            bot.scores.append(score) 
+            bot.mean_scores.append(mean_score)
+
+            print('Game', bot.games_number, 'Score', score)
 
             states.append(state)
-            new_states.append(new_state)
+            new_states.append(state)
             actions.append(action)
-            rewards.append(reward)
+            rewards.append(0)
             is_dones.append(is_done)
-            continue
 
-        # If game is over, refresh and save.
-        game.refresh()
-
-        bot.games_number += 1
-        bot.total_score += score
-        mean_score = bot.total_score / bot.games_number 
-
-        bot.rates.append(bot.exploration_rate*100)
-        bot.scores.append(score) 
-        bot.mean_scores.append(mean_score)
-
-        print('Game', bot.games_number, 'Score', score)
-
-        states.append(state)
-        new_states.append(state)
-        actions.append(action)
-        rewards.append(0)
-        is_dones.append(is_done)
-
-        after_time = time.time()
-        time_elapsed = after_time - before_time
-        bot.delta_times.append(time_elapsed)
-        break
+            after_time = time.time()
+            time_elapsed = after_time - before_time
+            bot.delta_times.append(time_elapsed)
+            break
 
 
-    for i in range(len(states)):
-        bot.cache(states[i], new_states[i], actions[i], rewards[i], is_dones[i])
+        for i in range(len(states)):
+            bot.cache(states[i], new_states[i], actions[i], rewards[i], is_dones[i])
 
-    
-    loss = bot.learn()
-    bot.losses.append(loss)
+        
+        loss = bot.learn()
+        bot.losses.append(loss)
 
-    if (score > MAX_SCORE_TO_SAVE):
-            json_data = {
-                'scores': bot.scores,
-                'avg scores': bot.mean_scores,
-                'game number': bot.games_number,
-                'loss': bot.losses,
-                'exploration rates': bot.rates,
-                'total score': bot.total_score,
-                'delta times': bot.delta_times,
-            }
-            bot.model.save(json_data)
+        if (score > MAX_SCORE_TO_SAVE):
+                json_data = {
+                    'scores': bot.scores,
+                    'avg scores': bot.mean_scores,
+                    'game number': bot.games_number,
+                    'loss': bot.losses,
+                    'exploration rates': bot.rates,
+                    'total score': bot.total_score,
+                    'delta times': bot.delta_times,
+                }
+                bot.model.save(json_data)
         
 
 
@@ -154,21 +155,14 @@ def train():
     print('-->Creating ', NUMBER_OF_INSTANCES, ' instances')
     bot = SuikaBot(NUMBER_OF_INSTANCES)
 
-    while True:
-        threads = []
-        for index, game in enumerate(bot.games):
-            t = threading.Thread(target=process_instance, args=(bot, game, index))
-            threads.append(t)
-            t.start()
-            
+    
+    for index, game in enumerate(bot.games):
+        t = threading.Thread(target=process_instance, args=(bot, game, index))
+        t.start()
 
-        for thread in threads:
-            thread.join()
-
-        bot.learn()
+    while True:    
         plot(bot) 
 
-		
 
 if __name__ == '__main__':
     train()
